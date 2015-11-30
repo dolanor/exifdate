@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/rwcarlsen/goexif/exif"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -116,7 +117,7 @@ func visitFiles(path string, fi os.FileInfo, err error) error {
 	}
 	log.Println("EXIF:", path, xDate)
 	sub := xDate.Sub(dirDate)
-	if sub <= 2*24*time.Hour {
+	if math.Abs(float64(sub)) <= float64(2*24*time.Hour) {
 		return nil
 	}
 	log.Println("before", dirDate)
