@@ -5,6 +5,7 @@ import (
 	"github.com/rwcarlsen/goexif/exif"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -96,7 +97,7 @@ func visitFiles(path string, fi os.FileInfo, err error) error {
 	log.Println("FSTREE:", path, dirDate)
 
 	f, err := os.Open(path)
-
+	defer f.Close()
 	if err != nil {
 		log.Println("Error opening file during walk ", err)
 		return err
@@ -114,6 +115,28 @@ func visitFiles(path string, fi os.FileInfo, err error) error {
 		return err
 	}
 	log.Println("EXIF:", path, xDate)
+	sub := xDate.Sub(dirDate)
+	if sub <= 2*24*time.Hour {
+		return nil
+	}
+	log.Println("before", dirDate)
+	//	y, m, d := dirDate.Date()
+	h, mm, s := xDate.Clock()
+
+	dirDate = dirDate.Add(time.Date(0, 0, 0, h, mm, s, 0, time.UTC).Sub(time.Date(0, 0, 0, 0, 0, 0, 0, time.UTC)))
+
+	log.Println("after", dirDate)
+
+	//exiv2 -M "set Exif.Image.DateTime 2000:01:01 00:00:17" -M  "set Exif.Photo.DateTimeOriginal 2001:01:01 00:00:17" -M "set Exif.Photo.DateTimeDigitized 2002:01:01 00:00:17" mo $file
+	xformatDate := dirDate.Format("2006:01:02 15:04:05")
+	commandString := []string{"exiv2", "-M", "set Exif.Image.DateTime " + xformatDate, "-M", "set Exif.Photo.DateTimeOriginal " + xformatDate, "-M", "set Exif.Photo.DateTimeDigitized " + xformatDate, "mo", path}
+
+	_, err = exec.Command(commandString[0], commandString[1:]...).Output()
+	if err != nil {
+		log.Println("Couldn't modify tags with exiv2 for ", path)
+		return nil
+	}
+	log.Println("Changed timestamp for", path, "to", dirDate)
 	return nil
 }
 
